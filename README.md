@@ -1,2 +1,2 @@
-# ttgen
-Table tests generator for methods and functions.
+# ttgenlib
+Framework for table tests generator.
