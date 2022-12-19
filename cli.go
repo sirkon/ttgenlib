@@ -1,11 +1,19 @@
 package ttgenlib
 
-type cliArgs struct {
-	Version     bool `help:"Show version and exit." short:"v"`
-	Completions bool `help:"Install command completions and exit." short:"c"`
+import "github.com/willabides/kongplete"
 
-	PkgPath  string `help:"Package path to look in." short:"p" default:"."`
-	Type     string `arg:"" help:"Type name. Method name must be provided after it once this one is not empty."`
-	Method   string `arg:"" help:"Method name. Must follow non-empty type name."`
-	Function string `help:"Function name. Cannot be used together with type and method arguments." short:"f"`
+type cliArgs struct {
+	InstallCompletions kongplete.InstallCompletions `cmd:"install-completions" help:"Install completions and exit."`
+	Version            versionCommand               `cmd:"" help:"Show version and exit." short:"v"`
+
+	PkgPath  pkgPath         `help:"Package path to look in." short:"p" default:"." predict:"PKG_PATH"`
+	Method   commandMethod   `cmd:"" help:"Generate test template for a method."`
+	Function commandFunction `cmd:"" help:"Generate test template for a function."`
+}
+
+type runContext struct {
+	args    *cliArgs
+	lookup  MockLookup
+	logging GenLoggingRenderer
+	opts    []GenOption
 }

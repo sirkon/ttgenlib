@@ -8,8 +8,14 @@ import (
 )
 
 // GenerateForMethod generates table test template and helpers for a method of a type.
-func GenerateForMethod(pkg, typ, method string, mockLookup MockLookup, opts ...Option) error {
-	g, err := newGenerator(pkg, mockLookup, opts...)
+func GenerateForMethod(
+	pkg, typ,
+	method string,
+	mockLookup MockLookup,
+	msgsRenderer LoggingRenderer,
+	opts ...Option,
+) error {
+	g, err := newGenerator(pkg, mockLookup, msgsRenderer, opts...)
 	if err != nil {
 		return errors.Wrap(err, "init generator")
 	}

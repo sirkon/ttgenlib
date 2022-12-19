@@ -29,6 +29,12 @@ func (m *OrderedMap[K, V]) Set(k K, v V) {
 	m.data[k] = v
 }
 
+// Has check if there is a value with the given key.
+func (m *OrderedMap[K, V]) Has(k K) bool {
+	_, ok := m.data[k]
+	return ok
+}
+
 // Get returns the value of the given key k.
 func (m *OrderedMap[K, V]) Get(k K) (V, bool) {
 	v, ok := m.data[k]

@@ -8,8 +8,13 @@ import (
 )
 
 // GenerateForFunction generate table tests for a function.
-func GenerateForFunction(pkg, fn string, mockLookup MockLookup, opts ...Option) error {
-	g, err := newGenerator(pkg, mockLookup, opts...)
+func GenerateForFunction(
+	pkg, fn string,
+	mockLookup MockLookup,
+	msgsRenderer LoggingRenderer,
+	opts ...Option,
+) error {
+	g, err := newGenerator(pkg, mockLookup, msgsRenderer, opts...)
 	if err != nil {
 		return errors.Wrap(err, "init generator")
 	}

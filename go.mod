@@ -7,7 +7,7 @@ require (
 	github.com/sirkon/errors v0.2.1
 	github.com/sirkon/jsonexec v0.0.2
 	github.com/sirkon/message v1.5.1
-	github.com/sirkon/testlog v0.0.1
+	github.com/sirkon/testlog v0.1.0
 	github.com/willabides/kongplete v0.3.0
 	golang.org/x/tools v0.3.0
 )

@@ -1,11 +1,14 @@
 package main
 
-import "io"
+import (
+	"context"
+	"io"
+)
 
 type theType struct {
 	dst io.Writer
 }
 
-func (t *theType) someFunction(src io.Reader) ([]byte, error) {
+func someFunction(ctx context.Context, src io.Reader, count int) ([]byte, error) {
 	return io.ReadAll(src)
 }

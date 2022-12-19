@@ -40,31 +40,38 @@ func WithMockContext(g *Generator, _ optionRestriction) error {
 	return nil
 }
 
-// WithMockerFileName lets to set a file name for a mocker of a given type.
-func WithMockerFileName(n func(*types.TypeName) string) Option {
+// WithMockerNames lets to set a file and type names for a mocker of a given type.
+func WithMockerNames(n func(tn *types.TypeName) (fileName string, typeName string)) Option {
 	return func(g *Generator, _ optionRestriction) error {
-		g.mockerName = n
+		g.mockerNames = n
 		return nil
 	}
 }
 
-// WithRenderers defines custom renderers for test processing logic.
-func WithRenderers(
-	preTest func(r *gogh.GoRenderer[*gogh.Imports]),
-	ctxInit func(r *gogh.GoRenderer[*gogh.Imports]),
-	messager MessagesRenderer,
-) Option {
+// WithPreTest overrides default pretest renderer.
+func WithPreTest(pretest func(r *gogh.GoRenderer[*gogh.Imports])) Option {
 	return func(g *Generator, _ optionRestriction) error {
-		g.preTest = preTest
-		g.ctxInit = ctxInit
-		g.msgr = messager
-
+		g.preTest = pretest
 		return nil
 	}
 }
 
-// MessagesRenderer this prints error processing messages.
-type MessagesRenderer interface {
+// WithCtxInit overrides default context.Context init rendering.
+func WithCtxInit(ctxinit func(r *gogh.GoRenderer[*gogh.Imports])) Option {
+	return func(g *Generator, _ optionRestriction) error {
+		g.ctxInit = ctxinit
+		return nil
+	}
+}
+
+// LoggingRenderer renders error messages.
+// These variables:
+//
+//   t *testing.T
+//   err error
+//
+// are available in the generation scope to use.
+type LoggingRenderer interface {
 	// ExpectedError is used to print expected error err.
 	ExpectedError(r *gogh.GoRenderer[*gogh.Imports])
 	// UnexpectedError used when error err was not expected.

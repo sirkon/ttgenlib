@@ -22,16 +22,21 @@ type Generator struct {
 	pkgs       map[string]*packages.Package
 	mockLookup MockLookup
 
-	nomock     []doNotMock
-	m          *gogh.Module[*gogh.Imports]
-	mockerName func(tn *types.TypeName) string
+	nomock      []doNotMock
+	m           *gogh.Module[*gogh.Imports]
+	mockerNames func(tn *types.TypeName) (filename string, typename string)
 
 	preTest func(r *goRenderer)
 	ctxInit func(r *goRenderer)
-	msgr    MessagesRenderer
+	msgr    LoggingRenderer
 }
 
-func newGenerator(pkg string, mockLookup MockLookup, opts ...Option) (*Generator, error) {
+func newGenerator(
+	pkg string,
+	mockLookup MockLookup,
+	msgsRenderer LoggingRenderer,
+	opts ...Option,
+) (*Generator, error) {
 	var goList struct {
 		ImportPath string
 	}
@@ -58,10 +63,18 @@ func newGenerator(pkg string, mockLookup MockLookup, opts ...Option) (*Generator
 		mockLookup: mockLookup,
 		pkgs:       map[string]*packages.Package{},
 		nomock:     []doNotMock{contextNoMock},
-		mockerName: func(tn *types.TypeName) string {
-			res := gogh.Underscored(tn.Name(), "mocker", "test") + ".go"
-			return res
+		mockerNames: func(tn *types.TypeName) (filename string, typename string) {
+			filename = gogh.Underscored(tn.Name(), "mocker", "test") + ".go"
+			typename = gogh.Private(tn.Name(), "mocker")
+
+			return filename, typename
 		},
+		preTest: func(r *goRenderer) {},
+		ctxInit: func(r *goRenderer) {
+			r.Imports().Add("context").Ref("ctx")
+			r.L(`ctx := $ctx.Background()`)
+		},
+		msgr: msgsRenderer,
 	}
 	for _, pg := range res {
 		if pg.PkgPath == goList.ImportPath {
@@ -125,6 +138,8 @@ func (g *Generator) generateTest(
 	var mtype *types.Named
 	if hasMocksInType {
 		mtype = s.Recv().Type().(*types.Pointer).Elem().(*types.Named)
+		_, mockertype := g.mockerNames(mtype.Obj())
+		r.Let("mockertype", mockertype)
 	}
 
 	r.Imports().Add("testing").Ref("tst")
@@ -151,7 +166,7 @@ func (g *Generator) generateTest(
 		g.ctxInit(r)
 	}
 	if hasMocksInType {
-		r.L(`            m := new${0|P}Mocker(ctrl)`, mtype.Obj().Name())
+		r.L(`            m := new${mockertype|P}(ctrl)`, mtype.Obj().Name())
 		r.L(`            x := m.$0()`, mtype.Obj().Name())
 	} else if mtype != nil {
 		r.L(`            var x *$type // User change required, it is unclear how to create it properly'.`)
@@ -206,7 +221,7 @@ outer:
 		}
 
 		name := argfields.MustGet(p.Name())
-		cp.Add(name)
+		cp.Add("tt." + name)
 	}
 
 	var recvPrefix string
@@ -324,7 +339,7 @@ func (g *Generator) renderTestStructure(
 	rr.Uniq("row")
 	setupArgs.Add("row", "*test")
 	if hasMocksInType {
-		setupArgs.Add(r.Uniq("m"), "*"+mtype.Obj().Name()+"Mocker")
+		setupArgs.Add(r.Uniq("m"), r.S("*${mockertype}"))
 	}
 	if len(amocks) > 0 {
 		setupArgs.Add(rr.Uniq("amocks"), "*argMocks")
@@ -393,11 +408,14 @@ outer:
 
 func (g *Generator) generateTypeMocker(p *goPackage, s *types.Signature, mocks []MockLookupResult) error {
 	tn := s.Recv().Type().(*types.Pointer).Elem().(*types.Named).Obj()
-	fn := strings.TrimSuffix(g.mockerName(tn), ".go") + ".go"
+
+	filename, typename := g.mockerNames(tn)
+	fn := strings.TrimSuffix(filename, ".go") + ".go"
 
 	r := p.Go(fn, gogh.Shy)
 
 	r.Let("type", tn.Name())
+	r.Let("mockertype", typename)
 
 	r.Imports().Add(gomockPath).Ref("gomock")
 	r.Imports().Add("sync").Ref("sync")
@@ -410,8 +428,8 @@ func (g *Generator) generateTypeMocker(p *goPackage, s *types.Signature, mocks [
 	wn := r.Uniq("waiter")
 
 	r.L(`// Creates new mocker instance for ${type}.`)
-	r.L(`func new${type|P}Mocker(ctrl *$gomock.Controller) *${type|p}Mocker {`)
-	r.L(`    return &${type|p}Mocker{`)
+	r.L(`func new${mockertype|P}(ctrl *$gomock.Controller) *${mockertype} {`)
+	r.L(`    return &${mockertype}{`)
 	for i, mock := range mocks {
 		var cname string
 		tname := r.Type(mock.Named)
@@ -426,8 +444,8 @@ func (g *Generator) generateTypeMocker(p *goPackage, s *types.Signature, mocks [
 	r.L(`    }`)
 	r.L(`}`)
 	r.N()
-	r.L(`// ${type|p}Mocker repository for mockers of type ${type}.`)
-	r.L(`type ${type|p}Mocker struct{`)
+	r.L(`// ${mockertype} repository for mockers of type ${type}.`)
+	r.L(`type ${mockertype} struct{`)
 	for i, mock := range mocks {
 		r.L(`    $0 *$1`, fieldNames[i], r.Type(mock.Named))
 	}
@@ -435,7 +453,7 @@ func (g *Generator) generateTypeMocker(p *goPackage, s *types.Signature, mocks [
 	r.L(`}`)
 	r.N()
 	r.L(`// waiters sets expected count of background processes to wait before finish the test.`)
-	r.L(`func (m *${type|p}Mocker) waiters(i int) {`)
+	r.L(`func (m *${mockertype}) waiters(i int) {`)
 	r.L(`    m.$0.Add(i)`, wn)
 	r.L(`}`)
 	r.N()
@@ -443,17 +461,17 @@ func (g *Generator) generateTypeMocker(p *goPackage, s *types.Signature, mocks [
 	r.L(`// It should be bound to the last call made in each background process to wait for. Something like:`)
 	r.L(`//`)
 	r.L(`//    m.Mock.EXPECT().….Do(m.end)`)
-	r.L(`func (m *${type|p}Mocker) end(...any) {`)
+	r.L(`func (m *${mockertype}) end(...any) {`)
 	r.L(`    m.$0.Done()`, wn)
 	r.L(`}`)
 	r.N()
 	r.L(`// wait for background processes to stop.`)
-	r.L(`func (m *${type|p}Mocker) wait() {`)
+	r.L(`func (m *${mockertype}) wait() {`)
 	r.L(`    m.$0.Wait()`, wn)
 	r.L(`}`)
 	r.N()
 	r.L(`// ${0|p} creates $0 instance with mocks.`, tn.Name())
-	r.L(`func (m *${type|p}Mocker) ${type}() *$type {`)
+	r.L(`func (m *${mockertype}) ${type}() *$type {`)
 	r.L(`    // User defined.`)
 	r.L(`}`)
 	r.N()
