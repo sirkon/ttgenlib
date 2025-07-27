@@ -146,9 +146,9 @@ func (g *Generator) generateTest(
 	r.Imports().Add(gomockPath).Ref("gomock")
 
 	if mtype != nil {
-		r.L(`func Test${0|P}${1|P}(t *${tst}.T) {`, mtype.Obj().Name(), f.Name())
+		r.L(`func Test${0}${1}(t *${tst}.T) {`, mtype.Obj().Name(), f.Name())
 	} else {
-		r.L(`func Test${0|P}(t *${tst}.T) {`, f.Name())
+		r.L(`func Test${0}(t *${tst}.T) {`, f.Name())
 	}
 
 	argfields, resfields, errcheck := g.renderTestStructure(r, hasMocksInType, mtype, amocks, s)
@@ -392,7 +392,7 @@ outer:
 
 		var name string
 		if res.Name() != "" {
-			name = r.Uniq(gogh.Public("want", res.Name()))
+			name = r.Uniq(gogh.Private("want", res.Name()))
 		} else {
 			name = r.Uniq("want", strconv.Itoa(i+1))
 		}

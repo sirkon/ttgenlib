@@ -43,13 +43,18 @@ func (m *ReaderMock) Read(p []byte) (n int, err error) {
 }
 
 // Read register expected call of method io.Reader.Read
-func (mr *ReaderMockRecorder) Read(p interface{}) *gomock.Call {
+func (mr *ReaderMockRecorder) Read(p any) *gomock.Call {
 	if p != nil {
 		if _, ok := p.(gomock.Matcher); !ok {
 			p = deepequal.NewEqMatcher(p)
 		}
 	}
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Read", reflect.TypeOf((*ReaderMock)(nil).Read), p)
+}
+
+// ReadWhatever records a call with arbitrary arguments.
+func (mr *ReaderMockRecorder) ReadWhatever() *gomock.Call {
+	return mr.Read(gomock.Any())
 }
 
 // WriterMock interface io.Writer mock
@@ -87,11 +92,16 @@ func (m *WriterMock) Write(p []byte) (n int, err error) {
 }
 
 // Write register expected call of method io.Writer.Write
-func (mr *WriterMockRecorder) Write(p interface{}) *gomock.Call {
+func (mr *WriterMockRecorder) Write(p any) *gomock.Call {
 	if p != nil {
 		if _, ok := p.(gomock.Matcher); !ok {
 			p = deepequal.NewEqMatcher(p)
 		}
 	}
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Write", reflect.TypeOf((*WriterMock)(nil).Write), p)
+}
+
+// WriteWhatever records a call with arbitrary arguments.
+func (mr *WriterMockRecorder) WriteWhatever() *gomock.Call {
+	return mr.Write(gomock.Any())
 }

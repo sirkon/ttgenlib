@@ -1,3 +1,3 @@
 package extmocks
 
-//go:generate pamgen -s io -d io_mock.go Reader Writer
+//go:generate pamgen -w -s io -d io_mock.go Reader Writer

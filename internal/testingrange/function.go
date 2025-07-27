@@ -9,6 +9,6 @@ type theType struct {
 	dst io.Writer
 }
 
-func someFunction(ctx context.Context, src io.Reader, count int) ([]byte, error) {
+func (t *theType) someFunction(ctx context.Context, src io.Reader, count int) ([]byte, error) {
 	return io.ReadAll(src)
 }
