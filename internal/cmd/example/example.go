@@ -8,13 +8,15 @@ import (
 )
 
 func main() {
+	lr := &loggingRenderer{
+		needTestLog: true,
+	}
 	err := ttgenlib.Run(
 		"example",
 		ttgenlib.StandardMockLookup([]string{"internal/extmocks"}, "${type|P}Mock", nil),
-		loggingRenderer{},
+		lr,
 		ttgenlib.GenPreTest(func(r *gogh.GoRenderer[*gogh.Imports]) {
-			r.Imports().Add("github.com/sirkon/testlog").Ref("tl")
-			r.L(`tl := testlog.New(t)`)
+			lr.z = r.Z()
 		}),
 	)
 	if err != nil {
@@ -22,28 +24,36 @@ func main() {
 	}
 }
 
-type loggingRenderer struct{}
+type loggingRenderer struct {
+	z           *gogh.GoRenderer[*gogh.Imports]
+	needTestLog bool
+}
 
-func (loggingRenderer) ExpectedError(r *gogh.GoRenderer[*gogh.Imports]) {
-	myImports(r)
+func (lr *loggingRenderer) ExpectedError(r *gogh.GoRenderer[*gogh.Imports]) {
+	lr.myImports(r)
 	r.L(`tl.Log($errs.Wrap(err, "expected error"))`)
 }
 
-func (loggingRenderer) UnexpectedError(r *gogh.GoRenderer[*gogh.Imports]) {
-	myImports(r)
+func (lr *loggingRenderer) UnexpectedError(r *gogh.GoRenderer[*gogh.Imports]) {
+	lr.myImports(r)
 	r.L(`tl.Error($errs.Wrap(err, "unexpected error"))`)
 }
 
-func (loggingRenderer) ErrorWasExpected(r *gogh.GoRenderer[*gogh.Imports]) {
-	myImports(r)
+func (lr *loggingRenderer) ErrorWasExpected(r *gogh.GoRenderer[*gogh.Imports]) {
+	lr.myImports(r)
 	r.L(`tl.Error($errs.New("error was expected"))`)
 }
 
-func (loggingRenderer) InvalidError(r *gogh.GoRenderer[*gogh.Imports], errvar string) {
-	myImports(r)
+func (lr *loggingRenderer) InvalidError(r *gogh.GoRenderer[*gogh.Imports], errvar string) {
+	lr.myImports(r)
 	r.L(`tl.Error($errs.Wrap($0, "check error kind"))`, errvar)
 }
 
-func myImports(r *gogh.GoRenderer[*gogh.Imports]) {
+func (lr *loggingRenderer) myImports(r *gogh.GoRenderer[*gogh.Imports]) {
+	if lr.needTestLog {
+		lr.needTestLog = false
+		r.Imports().Add("github.com/sirkon/testlog").Ref("tl")
+		lr.z.L(`tl := $tl.New(t)`)
+	}
 	r.Imports().Add("github.com/sirkon/errors").Ref("errs")
 }
