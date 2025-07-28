@@ -143,7 +143,6 @@ func (g *Generator) generateTest(
 	}
 
 	r.Imports().Add("testing").Ref("tst")
-	r.Imports().Add(gomockPath).Ref("gomock")
 
 	if mtype != nil {
 		r.L(`func Test${0}${1}(t *${tst}.T) {`, mtype.Obj().Name(), f.Name())
@@ -159,6 +158,7 @@ func (g *Generator) generateTest(
 	r.L(`        tt := tt`)
 	r.L(`        t.Run(tt.name, func(t *$tst.T) {`)
 	if hasMocksInType || len(amocks) > 0 {
+		r.Imports().Add(gomockPath).Ref("gomock")
 		r.L(`            ctrl := $gomock.NewController(t)`)
 	}
 	g.preTest(r)
@@ -335,7 +335,9 @@ func (g *Generator) renderTestStructure(
 	// Render setup function arguments.
 	rr := r.Scope()
 	var setupArgs gogh.Params
-	setupArgs.Add(rr.Uniq("ctrl"), r.S("*$gomock.Controller"))
+	if hasMocksInType {
+		setupArgs.Add(rr.Uniq("ctrl"), r.S("*$gomock.Controller"))
+	}
 	rr.Uniq("row")
 	setupArgs.Add("row", "*test")
 	if hasMocksInType {
@@ -417,8 +419,8 @@ func (g *Generator) generateTypeMocker(p *goPackage, s *types.Signature, mocks [
 	r.Let("type", tn.Name())
 	r.Let("mockertype", typename)
 
-	r.Imports().Add(gomockPath).Ref("gomock")
 	r.Imports().Add("sync").Ref("sync")
+	r.Imports().Add(gomockPath).Ref("gomock")
 
 	r.Uniq(tn.Name())
 	var fieldNames []string
